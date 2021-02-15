@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en" encoding="utf8">
+    <head>
+        <title>Demo reusable js component</title>
+        <meta charset="UTF-8">
+        <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+        <script>
+         class App {
+             registeredComponents = new Object();
+             components = new Object();
+
+             registerComponent(componentName, componentClass) {
+                 this.registeredComponents[componentName] = componentClass;
+             }
+
+             component(name) {
+                 return this.components[name];
+             }
+
+             constructor() {
+                 this.registerComponent("dropdown", DropDown);
+                 this.initComponents();
+             }
+
+             initComponents() {
+                 var thisApp = this;
+                 jQuery("*").each(function(i,e){
+                     var elem = jQuery(e);
+                     var tagName = elem.prop("tagName").toLowerCase();
+                     if (tagName in thisApp.registeredComponents) {
+                         var constructor = thisApp.registeredComponents[tagName];
+                         var component = new constructor(this, elem);
+                         thisApp.components[elem.attr("name")] = component;
+                         component.init();
+                     }
+                 });
+             }
+         }
+        </script>
+        <script>
+         class Template {
+             constructor(html) {
+                 this.html = html;
+             }
+
+             render(model) {
+                 return this.html.replace(/\{\{(\w+)\}\}/g, function(match, contents, offset, input_string)
+                     {
+                         return model[contents];
+                     }
+                 );
+             }
+         }
+        </script>
+        <script>
+         class ListModel {
+             constructor(provider) {
+                 if (provider.constructor === Array) {
+                     this.items = provider;
+                 }
+             }
+
+             getList() {
+                 return this.items;
+             }
+
+             setUpdate(callback) {
+                 this.callback = callback;
+             }
+         }
+        </script>
+        <script>
+         class Component {
+             constructor(app, element) {
+                 this.app = app;
+                 this.element = element;
+             }
+
+             init() {
+                 this.render();
+             }
+
+             setModel(model) {
+                 this.model = model;
+                 this.model.setUpdate(this.onUpdateModel);
+                 this.onUpdateModel();
+             }
+
+             onUpdateModel() {
+             }
+
+             render() {
+                 var html = this.template().render({"name":this.element.attr("name"),
+                                                    "id":this.element.attr("id")});
+                 var replacement = jQuery(html)
+                 this.element.replaceWith(replacement);
+                 this.element = replacement;
+             }
+         }
+        </script>
+        <script>
+         class DropDown extends Component {
+             constructor(app, element) {
+                 super(app, element);
+             }
+
+             get name() { return "dropdown" }
+
+             onUpdateModel() {
+                 this.element.empty();
+                 var items = this.model.getList();
+                 for (var i=0; i<items.length; i++) {
+                     var html = this.templateChild().render(items[i]);
+                     this.element.append(html);
+                 }
+             }
+
+             template() {
+                 return new Template(`
+<select name="{{name}}" id="{{id}}"></select>
+                 `);
+             }
+
+             templateChild() {
+                 return new Template(`
+  <option value="{{value}}">{{name}}</option>
+                 `);
+             }
+         }
+        </script>
+        <!-- Anything above here should be reusable framework code -->
+        <script>
+         $(function() {
+             var app = new App();
+             var dropdown = app.component("mycomponent");
+             var data = [{"name":"Korsgaard", "value":"ck"},
+                         {"name":"Nussbaum",  "value":"mn"}];
+             dropdown.setModel(new ListModel(data));
+         });
+        </script>
+    </head>
+    <body>
+        <h1>Demo drop down component</h1>
+        <dropdown id="mycomponent" name="mycomponent"/>
+        <!-- Will be replaced by the following at runtime
+        <select name="mycomponent" id="mycomponent">
+            <option value="ck">Korsgaard</option>
+            <option value="mn">Nussbaum</option>
+        </select>
+        -->
+    </body>
+</html>
